@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go mod init:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(test:*)",
+      "Bash(findstr:*)",
+      "Bash(dir /b \"C:\\\\Users\\\\thieb\\\\Documents\\\\code\\\\VolumeMigration\")",
+      "Bash(dir C:UsersthiebDocumentscodeVolumeMigration)",
+      "Bash(wc:*)",
+      "Bash(/usr/local/go/bin/go mod download:*)",
+      "Bash(/usr/local/go/bin/go mod:*)",
+      "Bash(where go:*)",
+      "Bash(echo:*)",
+      "Bash(wsl bash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}

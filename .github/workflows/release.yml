@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build binaries
+      run: |
+        # Linux AMD64
+        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
+          -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          -o bin/volume-migrator-linux-amd64 ./cmd/volume-migrator
+
+        # Linux ARM64
+        GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
+          -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          -o bin/volume-migrator-linux-arm64 ./cmd/volume-migrator
+
+        # macOS AMD64
+        GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build \
+          -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          -o bin/volume-migrator-darwin-amd64 ./cmd/volume-migrator
+
+        # macOS ARM64 (Apple Silicon)
+        GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build \
+          -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          -o bin/volume-migrator-darwin-arm64 ./cmd/volume-migrator
+
+        # Windows AMD64
+        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
+          -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          -o bin/volume-migrator-windows-amd64.exe ./cmd/volume-migrator
+
+    - name: Create archives
+      run: |
+        cd bin
+        # Linux AMD64
+        tar czf volume-migrator-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz volume-migrator-linux-amd64
+        sha256sum volume-migrator-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz > volume-migrator-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz.sha256
+
+        # Linux ARM64
+        tar czf volume-migrator-${{ steps.get_version.outputs.VERSION }}-linux-arm64.tar.gz volume-migrator-linux-arm64
+        sha256sum volume-migrator-${{ steps.get_version.outputs.VERSION }}-linux-arm64.tar.gz > volume-migrator-${{ steps.get_version.outputs.VERSION }}-linux-arm64.tar.gz.sha256
+
+        # macOS AMD64
+        tar czf volume-migrator-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar.gz volume-migrator-darwin-amd64
+        sha256sum volume-migrator-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar.gz > volume-migrator-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar.gz.sha256
+
+        # macOS ARM64
+        tar czf volume-migrator-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz volume-migrator-darwin-arm64
+        sha256sum volume-migrator-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz > volume-migrator-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz.sha256
+
+        # Windows AMD64
+        zip volume-migrator-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip volume-migrator-windows-amd64.exe
+        sha256sum volume-migrator-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip > volume-migrator-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip.sha256
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "## What's Changed" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        git log --pretty=format:"* %s (%h)" $(git describe --tags --abbrev=0 HEAD^)..HEAD >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          bin/volume-migrator-*.tar.gz
+          bin/volume-migrator-*.tar.gz.sha256
+          bin/volume-migrator-*.zip
+          bin/volume-migrator-*.zip.sha256
+        body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

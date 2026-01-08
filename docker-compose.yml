@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  volume-migrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-none}
+        DATE: ${DATE:-unknown}
+    image: volume-migrator:latest
+    container_name: volume-migrator
+
+    # Mount Docker socket to access local Docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ~/.ssh:/home/migrator/.ssh:ro
+      - ./tmp:/tmp/migration:rw
+
+    # Network mode host for SSH connections
+    network_mode: host
+
+    # Example command (override with your own)
+    command: >
+      mycontainer
+      --remote user@remote-host
+      --verbose
+      --dry-run
+
+    # Optionally run as root if Docker socket permissions require it
+    # user: "0:0"
+
+    # Environment variables
+    environment:
+      - TZ=UTC
+
+# Example usage:
+# 1. Build the image:
+#    docker-compose build
+#
+# 2. Run with custom command:
+#    docker-compose run --rm volume-migrator mycontainer --remote user@host --verbose
+#
+# 3. Run version command:
+#    docker-compose run --rm volume-migrator version
+#
+# 4. Interactive mode:
+#    docker-compose run --rm volume-migrator mycontainer --remote user@host --interactive
